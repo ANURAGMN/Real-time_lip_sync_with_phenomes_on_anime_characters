@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canvas Lip‑Sync — Devon Kong / Preston Blair Mouth Shapes</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --fg:#e6edf3; --muted:#9fb0c3; --accent:#7cc7ff;
+      --card:#101721; --ink:#1f2a3a; --good:#19c37d; --warn:#ffb020;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial; color:var(--fg); background: radial-gradient(1200px 900px at 15% 10%, #0e1522 0%, #0b0f14 60%);}    
+    header{display:flex; gap:12px; align-items:center; padding:14px 18px; border-bottom:1px solid #172235; background:linear-gradient(180deg, #111827, #0f1623);}    
+    header h1{font-size:16px; margin:0; letter-spacing:.2px; color:#d7e2ee}
+    .wrap{display:grid; grid-template-columns: 420px minmax(480px,1fr); gap:16px; padding:16px;}
+    .card{background:var(--card); border:1px solid #1a2638; border-radius:16px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.25)}
+    #stage{display:grid; grid-template-rows:auto auto 1fr; gap:10px}
+    canvas{width:100%; height:320px; background:conic-gradient(from 180deg at 50% 100%, #0b0f14, #0d1420 35%, #0b0f14 70%); border-radius:14px; border:1px solid #1a2638}
+    .controls{display:flex; flex-wrap:wrap; gap:8px}
+    .controls > *{margin:2px 0}
+    button, select, input[type="text"]{background:#131c2b; color:var(--fg); border:1px solid #1a2638; border-radius:10px; padding:8px 10px}
+    button{cursor:pointer}
+    button:hover{border-color:#274062}
+    .pill{padding:6px 9px; border-radius:999px; font-size:12px; background:#0f1928; color:var(--muted); border:1px solid #1a2638}
+    .row{display:flex; align-items:center; gap:10px}
+    .grid{display:grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap:8px}
+    .mini{background:#0e1623; border:1px solid #1a2638; border-radius:12px; padding:8px}
+    .mini canvas{height:90px}
+    .mini h4{margin:6px 0 0; font-size:12px; color:#cfe0f1; letter-spacing:.2px}
+    .hint{color:var(--muted); font-size:12px}
+    .toggle{display:inline-flex; align-items:center; gap:6px}
+    .toggle input{accent-color:var(--accent)}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; background:#0a1320; border:1px solid #1a2638; padding:2px 6px; border-radius:6px}
+    .range{display:flex; gap:8px; align-items:center}
+    .range input{width:160px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Canvas Lip‑Sync • Devon Kong / Preston Blair Mouth Shapes</h1>
+    <span class="pill">Mic‑reactive</span>
+    <span class="pill">Type‑to‑viseme</span>
+    <span class="pill">Frame‑picker</span>
+  </header>
+
+  <div class="wrap">
+    <section id="stage" class="card">
+      <div class="row controls">
+        <button id="prev">◀ Prev</button>
+        <select id="visemeSelect"></select>
+        <button id="next">Next ▶</button>
+        <label class="toggle"><input id="autoPlay" type="checkbox"/> Auto play</label>
+        <label class="toggle"><input id="mic" type="checkbox"/> Mic</label>
+        <div class="range"><label for="speed">Speed</label><input id="speed" type="range" min="0.25" max="2" value="1" step="0.05"><span id="speedVal" class="kbd">1.00×</span></div>
+        <div class="range"><label for="intensity">Mic Gain</label><input id="intensity" type="range" min="0" max="2" value="1" step="0.05"><span id="gainVal" class="kbd">1.00</span></div>
+      </div>
+      <canvas id="c" width="900" height="480"></canvas>
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:8px">
+          <input id="script" type="text" placeholder="Type text and hit Play →   e.g., 'we move about freely'" style="min-width:340px">
+          <button id="playText">Play →</button>
+        </div>
+        <div class="hint">Hotkeys: ←/→ switch, <span class="kbd">Space</span> autoplay, number keys pick shape.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between"><h3 style="margin:6px 0 8px">Mouth Shape Set</h3><span class="hint">Approximation of the Devon Kong / Preston Blair chart</span></div>
+      <div class="grid" id="grid"></div>
+    </section>
+  </div>
+
+  <script>
+  // --- Viseme preset set ------------------------------------------------------
+  // Based on the popular Preston Blair set used widely (and in Devon Kong's chart):
+  // REST, AI, E, O, U, MBP, FV, L, WQ, TH (added), CHJ (added optional)
+  // Each preset is a compact param recipe that the painter expands into lips/teeth/tongue.
+
+  const VISEMES = [
+    // key, label, params
+    ['rest','Rest',      {open:.05, wide:.65, curve:.55, teethTop:false, teethBot:false, lip:1.0, tongue:0}],
+    ['ai','A / I',       {open:.75, wide:.80, curve:.45, teethTop:false, teethBot:false, lip:.8,  tongue:.05}],
+    ['e','E',            {open:.55, wide:.95, curve:.35, teethTop:true,  teethBot:true,  lip:.7,  tongue:.05}],
+    ['o','O',            {open:.55, wide:.45, curve:.85, teethTop:false, teethBot:false, lip:1.05, tongue:.15}],
+    ['u','U',            {open:.45, wide:.35, curve:.95, teethTop:false, teethBot:false, lip:1.1,  tongue:.18}],
+    ['mbp','M / B / P',  {open:.02, wide:.75, curve:.65, teethTop:false, teethBot:false, lip:1.2,  tongue:0}],
+    ['fv','F / V',       {open:.25, wide:.85, curve:.55, teethTop:true,  teethBot:false, lip:.9,  tongue:0}],
+    ['l','L',            {open:.35, wide:.75, curve:.55, teethTop:true,  teethBot:true,  lip:.9,  tongue:.85}],
+    ['wq','W / OO / Q',  {open:.35, wide:.40, curve:.95, teethTop:false, teethBot:false, lip:1.2, tongue:.1}],
+    ['th','TH / DH',     {open:.35, wide:.80, curve:.55, teethTop:true,  teethBot:true,  lip:.85, tongue:.65}],
+    ['chj','CH / SH / J',{open:.30, wide:.70, curve:.60, teethTop:false, teethBot:false, lip:.95, tongue:.35}],
+  ];
+
+  // Map rough letters to visemes for quick type‑to‑play (very simple heuristic)
+  const LETTER_MAP = [
+    [/\b[mbp]/gi,'mbp'],
+    ([/f|v/gi,'fv']),
+    ([/th/gi,'th']),
+    ([/[wq]|oo/gi,'wq']),
+    ([/[o]/gi,'o']),
+    ([/[u]/gi,'u']),
+    ([/[e]/gi,'e']),
+    ([/[l]/gi,'l']),
+    ([/[a|i]/gi,'ai']),
+  ];
+
+  // --- Canvas painter ---------------------------------------------------------
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let t = 0, last = performance.now();
+
+  const avatar = {
+    head: {x: canvas.width/2, y: canvas.height*0.58, r: 150},
+    skin: '#f4d4c5', lipTop:'#b64f5b', lipBot:'#a63e4c', inner:'#3b0f1c', tooth:'#fff8f6', tongue:'#d7657b'
+  };
+
+  function ease(a,b,k){return a + (b-a)*k}
+
+  function drawMouth(p){
+    const cx = avatar.head.x; const cy = avatar.head.y+22; const scale = 1.0;
+    const open = p.open; // 0..1
+    const wide = p.wide; // 0..1
+    const curve = p.curve; // 0..1 (corner roundness)
+    const lip = p.lip; // thickness multiplier
+    const tongue = p.tongue; // 0..1: tongue raise
+
+    // derived
+    const halfW = 90 * ease(.4,1.1,wide) * scale;
+    const openH = 4 + 90 * open * scale;
+    const corner = 10 + 20*curve;
+
+    // lip outline path
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath(); ctx.ellipse(0, 140, 150, 30, 0, 0, Math.PI*2); ctx.fill();
+
+    // upper lip
+    ctx.beginPath();
+    ctx.moveTo(-halfW,0);
+    ctx.bezierCurveTo(-halfW*0.6, -12-lip*3, -halfW*0.2, -18-lip*6, 0, -16-lip*6);
+    ctx.bezierCurveTo( halfW*0.2, -18-lip*6,  halfW*0.6, -12-lip*3, halfW, 0);
+    ctx.bezierCurveTo( halfW-corner,  openH*-0.25,  -(halfW-corner), openH*-0.25, -halfW,0);
+    ctx.closePath();
+    ctx.fillStyle = avatar.lipTop; ctx.fill();
+
+    // inner mouth
+    ctx.beginPath();
+    ctx.moveTo(-halfW,0);
+    ctx.quadraticCurveTo(-halfW*0.6, openH*0.15, 0, openH*0.2);
+    ctx.quadraticCurveTo( halfW*0.6, openH*0.15, halfW, 0);
+    ctx.quadraticCurveTo( halfW-corner, openH*0.75, 0, openH);
+    ctx.quadraticCurveTo( -(halfW-corner), openH*0.75, -halfW, 0);
+    ctx.closePath();
+    ctx.fillStyle = avatar.inner; ctx.fill();
+
+    // teeth top
+    if(p.teethTop){
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(-halfW*0.7, openH*0.04);
+      ctx.quadraticCurveTo(0, openH*-0.05, halfW*0.7, openH*0.04);
+      ctx.lineTo(halfW*0.7, openH*0.2);
+      ctx.quadraticCurveTo(0, openH*0.1, -halfW*0.7, openH*0.2);
+      ctx.closePath();
+      ctx.fillStyle = avatar.tooth; ctx.fill();
+      ctx.restore();
+    }
+
+    // tongue
+    if(tongue>0){
+      const ty = ease(openH*0.15, openH*0.7, tongue);
+      ctx.beginPath();
+      ctx.moveTo(-halfW*0.65, openH*0.35);
+      ctx.quadraticCurveTo(0, ty, halfW*0.65, openH*0.35);
+      ctx.quadraticCurveTo(0, openH*0.9, -halfW*0.65, openH*0.35);
+      ctx.closePath(); ctx.fillStyle = avatar.tongue; ctx.fill();
+    }
+
+    // teeth bottom
+    if(p.teethBot){
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(-halfW*0.65, openH*0.55);
+      ctx.quadraticCurveTo(0, openH*0.48, halfW*0.65, openH*0.55);
+      ctx.lineTo(halfW*0.65, openH*0.68);
+      ctx.quadraticCurveTo(0, openH*0.62, -halfW*0.65, openH*0.68);
+      ctx.closePath();
+      ctx.fillStyle = avatar.tooth; ctx.fill();
+      ctx.restore();
+    }
+
+    // lower lip
+    ctx.beginPath();
+    ctx.moveTo(-halfW,0);
+    ctx.bezierCurveTo(-halfW*0.8, openH*0.15, -halfW*0.3, openH*0.8, 0, openH*0.85);
+    ctx.bezierCurveTo( halfW*0.3, openH*0.8,  halfW*0.8, openH*0.15, halfW, 0);
+    ctx.bezierCurveTo( halfW-corner,  openH*0.25,  -(halfW-corner), openH*0.25, -halfW,0);
+    ctx.closePath();
+    ctx.fillStyle = avatar.lipBot; ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawFace(p){
+    const {x,y,r} = avatar.head;
+    // clear
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // background flares
+    const g = ctx.createRadialGradient(x, y-40, 10, x, y, 420);
+    g.addColorStop(0,'rgba(124,199,255,.25)');
+    g.addColorStop(1,'rgba(124,199,255,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.rect(0,0,canvas.width,canvas.height); ctx.fill();
+
+    // head
+    ctx.save(); ctx.translate(x,y);
+    ctx.fillStyle = avatar.skin; ctx.beginPath(); ctx.ellipse(0,0,r*1.02,r*1.18,0,0,Math.PI*2); ctx.fill();
+
+    // simple eyes
+    ctx.fillStyle = '#0c0f14';
+    ctx.beginPath(); ctx.ellipse(-52,-38,16,22,0,0,Math.PI*2); ctx.ellipse(52,-38,16,22,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-48,-42,6,6,0,0,Math.PI*2); ctx.ellipse(56,-42,6,6,0,0,Math.PI*2); ctx.fill();
+
+    ctx.restore();
+    drawMouth(p);
+  }
+
+  // --- Playback, state & UI ---------------------------------------------------
+  const PRESETS = Object.fromEntries(VISEMES.map(([k, label, params],i)=>[k,{i,label,params}]))
+  let current = 0; let autoplay=false; let speed=1;
+  let micOn=false; let micBoost=1; let audioCtx=null, analyser=null; let micLevel=0;
+
+  // Build selector & mini previews
+  const select = document.getElementById('visemeSelect');
+  VISEMES.forEach(([k,label])=>{ const o=document.createElement('option'); o.value=k; o.textContent=label; select.appendChild(o); });
+
+  // Mini grid previews
+  const grid = document.getElementById('grid');
+  VISEMES.forEach(([k,label,params],idx)=>{
+    const wrap=document.createElement('div'); wrap.className='mini';
+    wrap.innerHTML=`<canvas width="240" height="100"></canvas><h4>${idx+1}. ${label}</h4>`;
+    const mini = wrap.querySelector('canvas').getContext('2d');
+    // simple miniature mouth only
+    const p = {...params}; const w=wrap.querySelector('canvas').width; const h=wrap.querySelector('canvas').height;
+    mini.clearRect(0,0,w,h);
+    const cx=w/2, cy=h/2+4; mini.save(); mini.translate(cx,cy);
+    const halfW=46*(.4+.7*params.wide), openH=50*params.open; const corner=10+20*params.curve;
+    mini.fillStyle='#1a2334'; mini.fillRect(-w/2,-h/2,w,h);
+    // inner & lips
+    mini.beginPath(); mini.moveTo(-halfW,0); mini.quadraticCurveTo(0, openH*.15, halfW,0); mini.quadraticCurveTo(halfW-corner, openH*.75, 0, openH); mini.quadraticCurveTo(-(halfW-corner), openH*.75, -halfW,0); mini.closePath(); mini.fillStyle='#3b0f1c'; mini.fill();
+    mini.beginPath(); mini.moveTo(-halfW,0); mini.bezierCurveTo(-halfW*.6,-12, -halfW*.2,-16, 0,-14); mini.bezierCurveTo(halfW*.2,-16, halfW*.6,-12, halfW,0); mini.quadraticCurveTo(halfW-corner, -openH*.25, -(halfW-corner), -openH*.25, -halfW,0); mini.closePath(); mini.fillStyle='#b64f5b'; mini.fill();
+    mini.restore();
+    wrap.addEventListener('click',()=> setByIndex(idx));
+    grid.appendChild(wrap);
+  });
+
+  // Controls
+  document.getElementById('prev').onclick=()=> setByIndex((current-1+VISEMES.length)%VISEMES.length);
+  document.getElementById('next').onclick=()=> setByIndex((current+1)%VISEMES.length);
+  select.onchange=()=> setByKey(select.value);
+  document.getElementById('autoPlay').onchange=e=> autoplay=e.target.checked;
+  document.getElementById('mic').onchange=async e=>{ micOn=e.target.checked; if(micOn) await startMic(); };
+  document.getElementById('speed').oninput=e=>{ speed=parseFloat(e.target.value); document.getElementById('speedVal').textContent=speed.toFixed(2)+'×'; };
+  document.getElementById('intensity').oninput=e=>{ micBoost=parseFloat(e.target.value); document.getElementById('gainVal').textContent=micBoost.toFixed(2); };
+  document.getElementById('playText').onclick=()=> playFromText(document.getElementById('script').value||'we move about freely');
+
+  window.addEventListener('keydown', (ev)=>{
+    if(ev.code==='ArrowLeft') setByIndex((current-1+VISEMES.length)%VISEMES.length);
+    if(ev.code==='ArrowRight') setByIndex((current+1)%VISEMES.length);
+    if(ev.code==='Space'){ autoplay=!autoplay; document.getElementById('autoPlay').checked=autoplay; ev.preventDefault(); }
+    const n=parseInt(ev.key,10); if(!isNaN(n) && n>=1 && n<=VISEMES.length) setByIndex(n-1);
+  });
+
+  function setByIndex(i){ current=i; const [k,label]=VISEMES[i]; select.value=k; }
+  function setByKey(k){ const i=VISEMES.findIndex(v=>v[0]===k); if(i>=0) setByIndex(i); }
+
+  function playFromText(txt){
+    // very rough letter→viseme sequence
+    let seq=[]; let src=txt.toLowerCase();
+    // replace digraphs first
+    src = src.replace(/th/g,' θ ')
+             .replace(/ch|sh|jh|zh/g,' ʃ ')
+             .replace(/oo/g,' ū ');
+    for(const ch of src){
+      let key='rest';
+      if('mbp'.includes(ch)) key='mbp';
+      else if('fv'.includes(ch)) key='fv';
+      else if(ch==='θ') key='th';
+      else if('wq'.includes(ch) || ch==='ū') key='wq';
+      else if('o'.includes(ch)) key='o';
+      else if('u'.includes(ch)) key='u';
+      else if('e'.includes(ch)) key='e';
+      else if('l'.includes(ch)) key='l';
+      else if('a i'.includes(ch)) key='ai';
+      else if('ʃ'.includes(ch)) key='chj';
+      if(key!=='rest') seq.push(key);
+    }
+    // schedule
+    queue = seq.map(k=>({k, t:0.09 + Math.random()*0.04}));
+    autoplay=true; document.getElementById('autoPlay').checked=true;
+  }
+
+  // simple queue for autoplay
+  let queue=[]; let cursor=0; let accum=0;
+
+  async function startMic(){
+    try{
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      const src = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.7; src.connect(analyser);
+    }catch(err){ console.warn('Mic denied', err); document.getElementById('mic').checked=false; micOn=false; }
+  }
+
+  const bins=new Uint8Array(1024);
+  function updateMic(){
+    if(!analyser) return 0;
+    analyser.getByteFrequencyData(bins);
+    // weighted sum favoring 200–1200 Hz (speech band)
+    let sum=0, count=0;
+    for(let i=5;i<80;i++){ sum += bins[i]*(i<20?0.7:1.0); count++; }
+    const level = (sum/(count*255));
+    return Math.min(1, level*2*micBoost);
+  }
+
+  function tick(now){
+    const dt = Math.min(0.05, (now-last)/1000); last = now; t += dt;
+
+    if(micOn) micLevel = updateMic(); else micLevel = 0;
+
+    // current params
+    let [key,label,base] = VISEMES[current];
+    base = base || VISEMES[current][2];
+    const wobble = micOn? micLevel : 0;
+
+    const params = {
+      ...base,
+      open: Math.max(0, base.open + (autoplay? 0.15*Math.sin(t*6*speed):0) + wobble*0.9),
+      wide: Math.max(0.1, base.wide - wobble*0.25),
+    };
+
+    drawFace(params);
+
+    // autoplay/queue step
+    if(autoplay){
+      if(queue.length===0){ accum += dt*speed; if(accum>0.55){ accum=0; setByIndex((current+1)%VISEMES.length);} }
+      else{
+        if(cursor>=queue.length){ autoplay=false; document.getElementById('autoPlay').checked=false; queue=[]; cursor=0; }
+        else{
+          queue[cursor].t -= dt*speed;
+          if(queue[cursor].t<=0){ setByKey(queue[cursor].k); cursor++; }
+        }
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+  setByIndex(0);
+  requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

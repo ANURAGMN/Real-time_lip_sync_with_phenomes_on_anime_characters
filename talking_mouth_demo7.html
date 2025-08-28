@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Refined CSS Male Character Lip-Sync</title>
+<style>
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f0f0;
+    overflow: hidden;
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.character-container {
+    position: relative;
+    width: 250px;
+    height: 350px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+}
+
+.head {
+    position: absolute;
+    top: 50px;
+    width: 190px;
+    height: 200px;
+    background-color: #ffdbac;
+    border-radius: 50% / 50% 50% 30% 30%;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    z-index: 2;
+}
+
+.hair {
+    position: absolute;
+    width: 200px;
+    height: 100px;
+    background-color: #333333;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 0 0;
+    z-index: 1;
+}
+
+.hair::before, .hair::after {
+    content: '';
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background-color: #333333;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.hair::before {
+    top: -20px;
+    left: 10px;
+    transform: rotate(20deg);
+}
+
+.hair::after {
+    top: -25px;
+    right: 10px;
+    transform: rotate(-20deg);
+}
+
+.eye {
+    position: absolute;
+    top: 90px;
+    width: 30px;
+    height: 25px;
+    background-color: #fff;
+    border: 2px solid #333;
+    border-radius: 50%;
+    overflow: hidden;
+    z-index: 4;
+}
+
+.eye.left {
+    left: 45px;
+}
+
+.eye.right {
+    right: 45px;
+}
+
+.pupil {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 10px;
+    height: 10px;
+    background-color: #333;
+    border-radius: 50%;
+}
+
+.eye-highlight {
+    position: absolute;
+    top: 2px;
+    left: 8px;
+    width: 5px;
+    height: 5px;
+    background-color: #fff;
+    border-radius: 50%;
+    opacity: 0.8;
+}
+
+.eyebrow {
+    position: absolute;
+    top: 70px;
+    width: 45px;
+    height: 10px;
+    background-color: #333333;
+    border-radius: 4px;
+    z-index: 4;
+}
+
+.eyebrow.left {
+    left: 40px;
+    transform: rotate(0deg);
+}
+
+.eyebrow.right {
+    right: 40px;
+    transform: rotate(0deg);
+}
+
+.nose {
+    position: absolute;
+    top: 130px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 15px;
+    height: 12px;
+    background-color: #e0b28c;
+    border-radius: 50%;
+    z-index: 3;
+}
+
+.mouth-container {
+    position: absolute;
+    top: 155px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+}
+
+#mouth {
+    background-color: #555555;
+    transition: all 0.1s ease-out;
+}
+
+.mouth-closed {
+    width: 60px;
+    height: 15px;
+    border-radius: 0 0 15px 15px / 0 0 8px 8px;
+}
+
+.mouth-open-wide {
+    width: 45px;
+    height: 10px;
+    border-radius: 50% / 10%;
+}
+
+.mouth-o {
+    width: 25px;
+    height: 20px;
+    border-radius: 50% / 70%;
+}
+
+.mouth-i {
+    width: 45px;
+    height: 5px;
+    border-radius: 2px;
+}
+
+.mouth-m {
+    width: 40px;
+    height: 5px;
+    border-radius: 2px;
+}
+
+.torso {
+    position: absolute;
+    bottom: 0;
+    width: 180px;
+    height: 80px;
+    background-color: #4682b4;
+    border-radius: 20px 20px 0 0;
+    z-index: 0;
+}
+
+.ui-card {
+    position: absolute;
+    bottom: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    background-color: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+textarea {
+    width: 100%;
+    height: 60px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    resize: none;
+    box-sizing: border-box;
+}
+button {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #4f46e5;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+button:hover {
+    background: #4338ca;
+}
+#status {
+    color: #555;
+    font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="character-container">
+    <div class="torso"></div>
+    <div class="neck"></div>
+    <div class="hair"></div>
+    <div class="head">
+        <div class="eyebrow left"></div>
+        <div class="eyebrow right"></div>
+        <div class="eye left">
+            <div class="pupil"></div>
+            <div class="eye-highlight"></div>
+        </div>
+        <div class="eye right">
+            <div class="pupil"></div>
+            <div class="eye-highlight"></div>
+        </div>
+        <div class="nose"></div>
+        <div class="mouth-container">
+            <div id="mouth"></div>
+        </div>
+    </div>
+</div>
+
+<div class="ui-card">
+    <textarea id="inputText" placeholder="Enter text here..."></textarea>
+    <div id="status">Idle</div>
+    <button id="btnTalk">Speak</button>
+</div>
+
+<script>
+    const mouth = document.getElementById('mouth');
+    const inputText = document.getElementById('inputText');
+    const status = document.getElementById('status');
+    const btnTalk = document.getElementById('btnTalk');
+    const synth = window.speechSynthesis;
+    let maleVoice = null;
+    let currentAnimationTimeout = null;
+
+    const phonemeVisemes = {
+        'b': 'm', 'p': 'm', 'm': 'm',
+        'f': 'm', 'v': 'm',
+        'w': 'o', 'r': 'o',
+        'sh': 'i', 'ch': 'i', 'zh': 'i', 'j': 'i',
+        't': 'closed', 'd': 'closed', 's': 'closed', 'z': 'closed', 'th': 'closed', 'l': 'closed', 'n': 'closed',
+        'a': 'open-wide', 'e': 'i', 'i': 'i', 'o': 'o', 'u': 'o',
+        'y': 'i'
+    };
+
+    function getVisemeForWord(word) {
+        word = word.toLowerCase();
+        for (const phoneme in phonemeVisemes) {
+            if (word.startsWith(phoneme) || word.includes(phoneme)) {
+                return phonemeVisemes[phoneme];
+            }
+        }
+        return 'closed';
+    }
+
+    function animateMouth(viseme) {
+        mouth.className = visemeClasses[viseme] || 'mouth-closed';
+    }
+
+    const visemeClasses = {
+        'closed': 'mouth-closed',
+        'open-wide': 'mouth-open-wide',
+        'o': 'mouth-o',
+        'i': 'mouth-i',
+        'm': 'mouth-m'
+    };
+
+    function populateVoiceList() {
+        const voices = synth.getVoices();
+        maleVoice = voices.find(voice => voice.lang.includes('en') && voice.name.includes('Male')) ||
+                    voices.find(voice => voice.lang.includes('en') && voice.default) ||
+                    voices.find(voice => voice.lang.includes('en'));
+    }
+
+    populateVoiceList();
+    if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = populateVoiceList;
+    }
+
+    btnTalk.addEventListener('click', () => {
+        const text = inputText.value.trim();
+        if (text === '') {
+            status.textContent = "Please enter some text.";
+            return;
+        }
+
+        status.textContent = "Speaking...";
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (maleVoice) {
+            utterance.voice = maleVoice;
+        }
+
+        const words = text.split(/\s+/).filter(word => word.length > 0);
+        let wordIndex = 0;
+
+        const animateSpeech = () => {
+            if (wordIndex >= words.length) {
+                stopAllAnimations();
+                status.textContent = "Idle";
+                return;
+            }
+
+            const word = words[wordIndex];
+            const viseme = getVisemeForWord(word);
+
+            animateMouth(viseme);
+
+            const wordDuration = word.length * 100 + 100;
+            currentAnimationTimeout = setTimeout(() => {
+                animateMouth('closed');
+                wordIndex++;
+                currentAnimationTimeout = setTimeout(animateSpeech, 50);
+            }, wordDuration);
+        };
+        
+        animateSpeech();
+
+        utterance.onend = () => {
+            clearTimeout(currentAnimationTimeout);
+            stopAllAnimations();
+            status.textContent = "Idle";
+        };
+
+        utterance.onerror = (event) => {
+            clearTimeout(currentAnimationTimeout);
+            stopAllAnimations();
+            status.textContent = `Error: ${event.error}`;
+            console.error('SpeechSynthesisUtterance.onerror', event);
+        };
+
+        synth.speak(utterance);
+    });
+
+    function stopAllAnimations() {
+        if (currentAnimationTimeout) {
+            clearTimeout(currentAnimationTimeout);
+        }
+        animateMouth('closed');
+    }
+
+    animateMouth('closed');
+</script>
+</body>
+</html>
